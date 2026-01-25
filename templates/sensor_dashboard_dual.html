@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>树莓派环境监测系统</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}?v=1.1" type="image/svg+xml">
+
+
+  <!-- 优先使用本地 vendor（放在 static/vendor）以防 CDN 被浏览器阻止 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome.min.css') }}">
+
+  <script src="{{ url_for('static', filename='vendor/chart.min.js') }}"></script>
+  <!-- 使用本地 Chart.js（static/vendor/chart.min.js）。如果本地文件缺失，将显示回退提示，不再自动加载 CDN。 -->
+  <script src="{{ url_for('static', filename='vendor/chartjs-adapter-date-fns.min.js') }}"></script>
+  <!-- 添加日期适配器 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+
+<body>
+  <script>window.SERVER_TZ_OFFSET = {{ timezone_offset |default (8) }};</script>
+
+  <div class="container">
+    <header class="header">
+      <h1><i class="fas fa-microchip"></i> 树莓派环境监测系统</h1>
+      <p>实时环境数据监测与历史趋势</p>
+      <div class="sensor-status">
+        <div id="scd40Status" class="status-item status-offline"><i class="fas fa-circle"></i> SCD40</div>
+        <div id="dht22Status" class="status-item status-offline"><i class="fas fa-circle"></i> DHT22</div>
+      </div>
+    </header>
+
+    <main>
+      <section class="dashboard-grid">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-chart-line"></i> 实时环境数据</div>
+          <div class="data-display">
+            <div class="data-item">
+              <div class="data-label">CO₂浓度</div>
+              <div id="co2Value" class="data-value co2-value">--</div>
+              <div class="data-unit">ppm</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">温度</div>
+              <div id="tempValue" class="data-value temp-value">--</div>
+              <div class="data-unit">°C</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">相对湿度</div>
+              <div id="humiValue" class="data-value humi-value">--</div>
+              <div class="data-unit">%</div>
+            </div>
+          </div>
+          <div class="last-updated">最后更新: <span id="lastUpdatedTime">--</span></div>
+        </div>
+      </section>
+
+      <section class="charts-grid">
+        <div class="card">
+          <div class="chart-title"><i class="fas fa-wind"></i> CO₂浓度历史趋势</div>
+          <div class="chart-controls">
+            <button class="time-btn active" data-hours="1" data-chart="co2">1小时</button>
+            <button class="time-btn" data-hours="6" data-chart="co2">6小时</button>
+            <button class="time-btn" data-hours="24" data-chart="co2">24小时</button>
+            <button class="time-btn" data-hours="168" data-chart="co2">7天</button>
+          </div>
+          <div class="chart-container"><canvas id="co2Chart"></canvas></div>
+          <div class="chart-info">
+            <div class="chart-info-grid">
+              <div class="chart-info-item">
+                <div class="chart-info-label">数据来源</div>
+                <div class="chart-info-value" id="co2Source">SCD40</div>
+              </div>
+              <div class="chart-info-item">
+                <div class="chart-info-label">最小值</div>
+                <div class="chart-info-value co2-value" id="co2Min">-- ppm</div>
+              </div>
+              <div class="chart-info-item">
+                <div class="chart-info-label">最大值</div>
+                <div class="chart-info-value co2-value" id="co2Max">-- ppm</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="chart-title"><i class="fas fa-thermometer-half"></i> 温湿度历史趋势</div>
+          <div class="chart-controls">
+            <button class="time-btn active" data-hours="1" data-chart="temp_humi">1小时</button>
+            <button class="time-btn" data-hours="6" data-chart="temp_humi">6小时</button>
+            <button class="time-btn" data-hours="24" data-chart="temp_humi">24小时</button>
+            <button class="time-btn" data-hours="168" data-chart="temp_humi">7天</button>
+          </div>
+          <div class="chart-container"><canvas id="tempHumiChart"></canvas></div>
+          <div class="chart-info">
+            <div class="chart-info-grid">
+              <div class="chart-info-item">
+                <div class="chart-info-label">温度范围</div>
+                <div class="chart-info-value temp-value" id="tempRange">-- °C</div>
+              </div>
+              <div class="chart-info-item">
+                <div class="chart-info-label">湿度范围</div>
+                <div class="chart-info-value humi-value" id="humiRange">-- %</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="controls">
+        <button id="refreshBtn" class="btn btn-primary"><i class="fas fa-sync-alt"></i> 刷新数据</button>
+        <button id="autoRefreshToggle" class="btn btn-secondary"><i class="fas fa-play"></i> 自动刷新 (10秒)</button>
+        <button id="refreshAllCharts" class="btn btn-secondary"><i class="fas fa-chart-bar"></i> 刷新所有图表</button>
+      </div>
+
+      <div id="errorMessage" class="error-message" style="display:none"><i class="fas fa-exclamation-triangle"></i>
+        <span id="errorText">发生错误</span>
+      </div>
+
+      <!-- 本地回退提示（当第三方资源被阻止或 Chart.js 未加载时显示） -->
+      <div id="vendorFallback" class="vendor-fallback"
+        style="display:none; margin:12px; padding:10px; border:1px solid #f5c6cb; background:#fff3f3; color:#721c24;">
+        <strong>已检测到第三方资源被阻止或未加载。</strong>
+        如果希望离线/本地运行，请将以下文件放到项目的 <code>static/vendor/</code> 目录：
+        <ul>
+          <li><code>chart.min.js</code> - Chart.js（用于图表）</li>
+          <li><code>fontawesome.min.css</code> - Font Awesome（用于图标）</li>
+        </ul>
+        你可以在项目根目录运行下面命令下载并保存（需联网一次）：
+        <pre
+          style="background:#f7f7f7;padding:8px;border-radius:4px;">mkdir -p static/vendor
+curl -fSL https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.js -o static/vendor/chart.min.js
+curl -fSL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css -o static/vendor/fontawesome.min.css</pre>
+      </div>
+
+      <!-- 状态页脚（显示记录统计） -->
+      <div class="status-footer">
+        <p>传感器持续记录中，数据库记录: <span id="recordCount">--</span> 条</p>
+        <p id="localTime">时间: --</p>
+      </div>
+    </main>
+
+    <footer class="footer">
+      树莓派环境监测系统 v{{ app_version|default('2.4') }}
+    </footer>
+  </div>
+
+  <script type="module" src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+  <script>
+    (function () {
+      function ensureChart() {
+        if (typeof Chart === 'undefined') {
+          var bf = document.getElementById('vendorFallback');
+          if (bf) bf.style.display = 'block';
+        }
+      }
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        ensureChart();
+      } else {
+        document.addEventListener('DOMContentLoaded', ensureChart);
+      }
+    })();
+  </script>
+
+</body>
+
+</html>
