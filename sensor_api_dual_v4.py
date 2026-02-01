@@ -1,7 +1,9 @@
+# sensor_api_dual_v4.py（更新为v5.0）
+
 #!/usr/bin/env python3
 """
-树莓派双传感器API服务 - 精简版本 v4.0
-基于模块化架构
+树莓派三传感器API服务 - v5.0
+集成了SCD40、DHT22和SGP41传感器
 """
 
 import sys
@@ -17,7 +19,7 @@ from app.utils.time_utils import get_local_now
 
 # 初始化日志
 logger = setup_logging(
-    app_name='sensor_api_dual',
+    app_name='sensor_api_triple',
     log_level='info',
     log_to_file=True
 )
@@ -37,8 +39,10 @@ def test_sensors(app):
         if result['status'] == 'passed':
             if sensor_name == 'scd40':
                 print(f"✅ {sensor_name.upper()}测试成功: CO2={result['co2']}ppm")
-            else:
+            elif sensor_name == 'dht22':
                 print(f"✅ {sensor_name.upper()}测试成功: 温度={result['temperature']}°C, 湿度={result['humidity']}%")
+            elif sensor_name == 'sgp41':
+                print(f"✅ {sensor_name.upper()}测试成功: VOC指数={result['voc_index']}, NOx指数={result['nox_index']}")
         elif result['status'] == 'failed':
             print(f"⚠️ {sensor_name.upper()}读数异常: {result.get('error', '未知错误')}")
         elif result['status'] == 'error':
@@ -60,13 +64,19 @@ def main():
     app = create_app()
     
     print("=" * 60)
-    print("树莓派双传感器环境监测系统 v4.0")
+    print("树莓派三传感器环境监测系统 v5.0")
     print("=" * 60)
     print(f"启动时间 (UTC): {get_local_now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("传感器状态:")
     sensor_status = app.sensor_manager.get_sensor_status()
-    print(f"  • SCD40: {'✅ 已连接' if sensor_status.get('scd40') == 'online' else '❌ 未连接'} (仅CO2)")
-    print(f"  • DHT22: {'✅ 已连接' if sensor_status.get('dht22') == 'online' else '❌ 未连接'} (温湿度)")
+    for sensor_name, status in sensor_status.items():
+        if sensor_name == 'scd40':
+            print(f"  • SCD40: {'✅ 已连接' if status == 'online' else '❌ 未连接'} (仅CO2)")
+        elif sensor_name == 'dht22':
+            print(f"  • DHT22: {'✅ 已连接' if status == 'online' else '❌ 未连接'} (温湿度)")
+        elif sensor_name == 'sgp41':
+            print(f"  • SGP41: {'✅ 已连接' if status == 'online' else '❌ 未连接'} (VOC/NOx)")
+    
     print(f"时区设置: UTC+{Config.TIMEZONE_OFFSET}")
     print(f"服务器地址: http://{Config.HOST}:{Config.PORT}")
     print("=" * 60)
@@ -74,8 +84,11 @@ def main():
     # 测试传感器
     test_sensors(app)
     
-    print("提示: 数据采集线程已启动，将持续记录传感器数据")
-    print("提示: 按 Ctrl+C 停止服务")
+    print("提示:")
+    print("  • SGP41传感器以1秒间隔采样")
+    print("  • 所有传感器数据以30秒间隔存储")
+    print("  • 数据采集线程已启动，将持续记录传感器数据")
+    print("  • 按 Ctrl+C 停止服务")
     print("=" * 60)
     
     try:

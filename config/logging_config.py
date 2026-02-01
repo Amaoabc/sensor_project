@@ -26,7 +26,7 @@ def get_log_level(level_name):
     return level_name
 
 
-def setup_logging(app_name='sensor_api', log_level='info', log_to_file=True):
+def setup_logging(app_name='sensor_dual', log_level='info', log_to_file=True):
     """
     设置日志配置
     

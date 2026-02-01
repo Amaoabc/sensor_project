@@ -214,3 +214,12 @@ class SensorDataFilter:
                 'humidity': self.last_valid_humidity
             }
         }
+    def filter_voc_index(self, voc_index):
+        """过滤VOC指数"""
+        """待补充"""
+        return voc_index
+    
+    def filter_nox_index(self, nox_index):
+        """过滤NOx指数"""
+        """待补充"""
+        return nox_index

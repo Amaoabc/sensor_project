@@ -37,7 +37,7 @@ class SCD40Sensor:
             time.sleep(1)
             
             # 开始周期性测量
-            self.sensor.start_periodic_measurement()
+            self.sensor.start_low_periodic_measurement()
             
             # 预热
             logger.info(f"SCD40预热中... ({self.config['warmup_time']}秒)")

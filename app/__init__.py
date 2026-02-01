@@ -63,7 +63,7 @@ def create_app(config_class=Config):
         from flask import render_template
         
         # 简化的配置，避免导入问题
-        sensors = ['scd40', 'dht22']  # 简化传感器列表
+        sensors = ['scd40', 'dht22', 'sgp41']
         
         try:
             return render_template(
@@ -71,7 +71,7 @@ def create_app(config_class=Config):
                 sensors=sensors,
                 host_ip=Config.HOST,
                 port=Config.PORT,
-                app_version="4.0",
+                app_version="5.0",
                 timezone_offset=Config.TIMEZONE_OFFSET
             )
         except Exception as e:

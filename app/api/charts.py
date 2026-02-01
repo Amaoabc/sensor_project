@@ -186,3 +186,81 @@ def get_temperature_humidity_chart_data():
         logger.error(f"获取温湿度图表数据失败: {e}")
         # 返回示例数据作为后备
         return jsonify(generate_temp_humi_sample_data(24))
+
+@charts_bp.route('/voc_nox', methods=['GET'])
+def get_voc_nox_chart_data():
+    """获取VOC/NOx图表数据"""
+    try:
+        hours = request.args.get('hours', default=24, type=int)
+        
+        # 生成示例数据（未来应查询真实数据）
+        from datetime import datetime, timedelta
+        from app.utils.time_utils import get_local_now
+        
+        labels = []
+        voc_data = []
+        nox_data = []
+        
+        if hours <= 1:
+            points = 30
+        elif hours <= 6:
+            points = 36
+        elif hours <= 24:
+            points = 48
+        else:
+            points = 56
+        
+        now_local = get_local_now()
+        start_time = now_local - timedelta(hours=hours)
+        
+        voc_base = 100
+        nox_base = 1
+        
+        for i in range(points):
+            point_time = start_time + timedelta(hours=hours * i / points)
+            
+            if hours <= 24:
+                labels.append(point_time.strftime('%H:%M'))
+            else:
+                labels.append(point_time.strftime('%m-%d %H:%M'))
+            
+            # 模拟VOC和NOx数据
+            import random
+            import math
+            
+            time_of_day = (i % points) / points
+            voc_variation = 150 * math.sin(time_of_day * 2 * math.pi) + random.uniform(-30, 30)
+            nox_variation = 100 * math.sin(time_of_day * math.pi) + random.uniform(-20, 20)
+            
+            voc_data.append(max(1, min(500, int(voc_base + voc_variation))))
+            nox_data.append(max(1, min(500, int(nox_base + nox_variation))))
+        
+        return jsonify({
+            'success': True,
+            'count': points,
+            'labels': labels,
+            'datasets': [
+                {
+                    'label': 'VOC指数 (示例数据)',
+                    'data': voc_data,
+                    'borderColor': 'rgb(255, 159, 64)',
+                    'backgroundColor': 'rgba(255, 159, 64, 0.1)',
+                    'borderWidth': 2,
+                    'tension': 0.4
+                },
+                {
+                    'label': 'NOx指数 (示例数据)',
+                    'data': nox_data,
+                    'borderColor': 'rgb(75, 192, 192)',
+                    'backgroundColor': 'rgba(75, 192, 192, 0.1)',
+                    'borderWidth': 2,
+                    'tension': 0.4
+                }
+            ],
+            'units': 'index',
+            'source': 'SGP41 (示例数据)'
+        })
+    
+    except Exception as e:
+        logger.error(f"获取VOC/NOx图表数据失败: {e}")
+        return jsonify({'error': '获取图表数据失败', 'message': str(e)}), 500
