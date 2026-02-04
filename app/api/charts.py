@@ -189,59 +189,95 @@ def get_temperature_humidity_chart_data():
 
 @charts_bp.route('/voc_nox', methods=['GET'])
 def get_voc_nox_chart_data():
-    """获取VOC/NOx图表数据"""
+    """获取VOC/NOx图表数据（使用真实数据）"""
     try:
         hours = request.args.get('hours', default=24, type=int)
         
-        # 生成示例数据（未来应查询真实数据）
-        from datetime import datetime, timedelta
-        from app.utils.time_utils import get_local_now
+        # 先检查是否有真实数据
+        record_count = SensorData.query.filter(
+            db.or_(
+                SensorData.sgp41_voc_index.isnot(None),
+                SensorData.sgp41_nox_index.isnot(None)
+            )
+        ).count()
         
-        labels = []
+        if record_count == 0:
+            # 没有数据，返回空数据
+            return jsonify({
+                'success': True,
+                'count': 0,
+                'labels': [],
+                'datasets': [],
+                'units': 'index',
+                'source': 'SGP41',
+                'timezone': f"UTC+{Config.TIMEZONE_OFFSET}",
+                'range': {
+                    'voc': {'min': None, 'max': None, 'avg': None},
+                    'nox': {'min': None, 'max': None, 'avg': None}
+                }
+            })
+        
+        # 计算时间范围（UTC时间）
+        time_limit = datetime.utcnow() - timedelta(hours=hours)
+        query = SensorData.query.filter(
+            SensorData.timestamp >= time_limit,
+            db.or_(
+                SensorData.sgp41_voc_index.isnot(None),
+                SensorData.sgp41_nox_index.isnot(None)
+            )
+        )
+        
+        # 获取数据并按时间排序
+        records = query.order_by(SensorData.timestamp.asc()).all()
+        
+        if not records:
+            # 指定时间范围内没有数据
+            return jsonify({
+                'success': True,
+                'count': 0,
+                'labels': [],
+                'datasets': [],
+                'units': 'index',
+                'source': 'SGP41',
+                'timezone': f"UTC+{Config.TIMEZONE_OFFSET}",
+                'range': {
+                    'voc': {'min': None, 'max': None, 'avg': None},
+                    'nox': {'min': None, 'max': None, 'avg': None}
+                }
+            })
+        
+        timestamps = []
         voc_data = []
         nox_data = []
         
-        if hours <= 1:
-            points = 30
-        elif hours <= 6:
-            points = 36
-        elif hours <= 24:
-            points = 48
-        else:
-            points = 56
+        for record in records:
+            if record.timestamp:
+                # 转换为本地时间
+                local_time = utc_to_local(record.timestamp)
+                
+                # 根据时间范围格式化时间标签
+                if hours <= 24:
+                    # 24小时内显示小时:分钟
+                    timestamps.append(local_time.strftime('%H:%M'))
+                else:
+                    # 超过24小时显示月-日 小时:分钟
+                    timestamps.append(local_time.strftime('%m-%d %H:%M'))
+            
+            # 使用SGP41的VOC/NOx数据
+            voc_data.append(record.sgp41_voc_index)
+            nox_data.append(record.sgp41_nox_index)
         
-        now_local = get_local_now()
-        start_time = now_local - timedelta(hours=hours)
-        
-        voc_base = 100
-        nox_base = 1
-        
-        for i in range(points):
-            point_time = start_time + timedelta(hours=hours * i / points)
-            
-            if hours <= 24:
-                labels.append(point_time.strftime('%H:%M'))
-            else:
-                labels.append(point_time.strftime('%m-%d %H:%M'))
-            
-            # 模拟VOC和NOx数据
-            import random
-            import math
-            
-            time_of_day = (i % points) / points
-            voc_variation = 150 * math.sin(time_of_day * 2 * math.pi) + random.uniform(-30, 30)
-            nox_variation = 100 * math.sin(time_of_day * math.pi) + random.uniform(-20, 20)
-            
-            voc_data.append(max(1, min(500, int(voc_base + voc_variation))))
-            nox_data.append(max(1, min(500, int(nox_base + nox_variation))))
+        # 计算统计信息
+        voc_valid_data = [v for v in voc_data if v is not None]
+        nox_valid_data = [v for v in nox_data if v is not None]
         
         return jsonify({
             'success': True,
-            'count': points,
-            'labels': labels,
+            'count': len(records),
+            'labels': timestamps,
             'datasets': [
                 {
-                    'label': 'VOC指数 (示例数据)',
+                    'label': 'VOC指数',
                     'data': voc_data,
                     'borderColor': 'rgb(255, 159, 64)',
                     'backgroundColor': 'rgba(255, 159, 64, 0.1)',
@@ -249,7 +285,7 @@ def get_voc_nox_chart_data():
                     'tension': 0.4
                 },
                 {
-                    'label': 'NOx指数 (示例数据)',
+                    'label': 'NOx指数',
                     'data': nox_data,
                     'borderColor': 'rgb(75, 192, 192)',
                     'backgroundColor': 'rgba(75, 192, 192, 0.1)',
@@ -258,9 +294,27 @@ def get_voc_nox_chart_data():
                 }
             ],
             'units': 'index',
-            'source': 'SGP41 (示例数据)'
+            'source': 'SGP41',
+            'timezone': f"UTC+{Config.TIMEZONE_OFFSET}",
+            'range': {
+                'voc': {
+                    'min': min(voc_valid_data) if voc_valid_data else None,
+                    'max': max(voc_valid_data) if voc_valid_data else None,
+                    'avg': sum(voc_valid_data)/len(voc_valid_data) if voc_valid_data else None
+                },
+                'nox': {
+                    'min': min(nox_valid_data) if nox_valid_data else None,
+                    'max': max(nox_valid_data) if nox_valid_data else None,
+                    'avg': sum(nox_valid_data)/len(nox_valid_data) if nox_valid_data else None
+                }
+            }
         })
     
     except Exception as e:
         logger.error(f"获取VOC/NOx图表数据失败: {e}")
-        return jsonify({'error': '获取图表数据失败', 'message': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': '获取图表数据失败',
+            'message': str(e)
+        }), 500
+

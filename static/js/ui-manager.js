@@ -33,7 +33,13 @@ class UIManager {
             co2Source: '#co2Source',
             tempRange: '#tempRange',
             humiRange: '#humiRange',
-            vendorFallback: '#vendorFallback'
+            vendorFallback: '#vendorFallback',
+            sgp41Status: '#sgp41Status',
+            vocValue: '#vocValue',
+            noxValue: '#noxValue',
+            vocRange: '#vocRange',
+            noxRange: '#noxRange',
+            vocNoxSource: '#vocNoxSource'
         };
 
         console.log('开始缓存DOM元素...');
@@ -58,27 +64,44 @@ class UIManager {
     updateSensorData(sensorData) {
         if (!sensorData || !sensorData.sensors) return;
 
-        const { scd40, dht22 } = sensorData.sensors;
+        // 安全地解构传感器数据，提供默认值
+        const sensors = sensorData.sensors || {};
+        const scd40 = sensors.scd40 || {};
+        const dht22 = sensors.dht22 || {};
+        const sgp41 = sensors.sgp41 || {};  // 添加默认值
 
         // 更新CO2值
         if (this.elements.co2Value) {
-            const co2 = scd40?.co2;
+            const co2 = scd40.co2;
             this.elements.co2Value.textContent = co2 !== null && co2 !== undefined ? co2 : '--';
             this.elements.co2Value.classList.toggle('loading', co2 === null);
         }
 
         // 更新温度值
         if (this.elements.tempValue) {
-            const temp = dht22?.temperature;
+            const temp = dht22.temperature;
             this.elements.tempValue.textContent = temp !== null && temp !== undefined ? temp : '--';
             this.elements.tempValue.classList.toggle('loading', temp === null);
         }
 
         // 更新湿度值
         if (this.elements.humiValue) {
-            const humi = dht22?.humidity;
+            const humi = dht22.humidity;
             this.elements.humiValue.textContent = humi !== null && humi !== undefined ? humi : '--';
             this.elements.humiValue.classList.toggle('loading', humi === null);
+        }
+        // 更新VOC值
+        if (this.elements.vocValue) {
+            const voc = sgp41.voc_index;
+            this.elements.vocValue.textContent = voc !== null && voc !== undefined ? Math.round(voc) : '--';
+            this.elements.vocValue.classList.toggle('loading', voc === null);
+        }
+
+        // 更新NOx值
+        if (this.elements.noxValue) {
+            const nox = sgp41.nox_index;
+            this.elements.noxValue.textContent = nox !== null && nox !== undefined ? Math.round(nox) : '--';
+            this.elements.noxValue.classList.toggle('loading', nox === null);
         }
 
         // 更新最后更新时间
@@ -115,18 +138,26 @@ class UIManager {
     updateSensorStatus(sensorData) {
         if (!sensorData || !sensorData.sensors) return;
 
-        const { scd40, dht22 } = sensorData.sensors;
+        const sensors = sensorData.sensors || {};
+        const scd40 = sensors.scd40 || {};
+        const dht22 = sensors.dht22 || {};
+        const sgp41 = sensors.sgp41 || {};  // 添加默认值
 
         // 更新SCD40状态
         if (this.elements.scd40Status) {
-            const status = scd40?.status || 'offline';
+            const status = scd40.status || 'offline';
             this.updateStatusElement(this.elements.scd40Status, 'SCD40', status);
         }
 
         // 更新DHT22状态
         if (this.elements.dht22Status) {
-            const status = dht22?.status || 'offline';
+            const status = dht22.status || 'offline';
             this.updateStatusElement(this.elements.dht22Status, 'DHT22', status);
+        }
+        // 更新SGP41状态
+        if (this.elements.sgp41Status) {
+            const status = sgp41.status || 'offline';
+            this.updateStatusElement(this.elements.sgp41Status, 'SGP41', status);
         }
     }
 
@@ -192,6 +223,34 @@ class UIManager {
                     }
                 }
                 break;
+            case 'vocNox':                    
+                    const { voc, nox } = stats;                    
+                    // 更新VOC范围
+                    if (this.elements.vocRange && voc) {
+                        const { min: vocMin, max: vocMax } = voc;
+                        if (vocMin !== undefined && vocMax !== undefined) {
+                            this.elements.vocRange.textContent = `${vocMin.toFixed(0)} ~ ${vocMax.toFixed(0)} index`;
+                        } else if (vocMin !== undefined) {
+                            this.elements.vocRange.textContent = `${vocMin.toFixed(0)} index`;
+                        } else if (vocMax !== undefined) {
+                            this.elements.vocRange.textContent = `${vocMax.toFixed(0)} index`;
+                        } else {
+                            this.elements.vocRange.textContent = '--';
+                        }
+                    }
+                    // 更新NOx范围
+                    if (this.elements.noxRange && nox) {
+                        const { min: noxMin, max: noxMax } = nox;
+                        if (noxMin !== undefined && noxMax !== undefined) {
+                            this.elements.noxRange.textContent = `${noxMin.toFixed(0)} ~ ${noxMax.toFixed(0)} index`;
+                        } else if (noxMin !== undefined) {
+                            this.elements.noxRange.textContent = `${noxMin.toFixed(0)} index`;
+                        } else if (noxMax !== undefined) {
+                            this.elements.noxRange.textContent = `${noxMax.toFixed(0)} index`;
+                        } else {
+                            this.elements.noxRange.textContent = '--';
+                        }
+                    }
         }
     }
 

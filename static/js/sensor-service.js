@@ -99,15 +99,32 @@ class SensorService {
      * 获取图表数据
      */
     async fetchChartData(chartType, hours = 24) {
-        const endpoint = chartType === 'co2' 
-            ? '/api/chart/co2' 
-            : '/api/chart/temperature_humidity';
+        // 扩展endpoint映射
+        const endpointMap = {
+            co2: '/api/charts/co2',
+            tempHumi: '/api/charts/temperature_humidity',
+            vocNox: '/api/charts/voc_nox'  // 新增
+        };
+        
+        const endpoint = endpointMap[chartType];
+        if (!endpoint) {
+            console.error(`未知的图表类型: ${chartType}`);
+            return {
+                success: false,
+                error: `未知的图表类型: ${chartType}`
+            };
+        }
         
         const url = `${endpoint}?hours=${hours}`;
         const cacheKey = `${chartType}_${hours}`;
+        console.log(`请求图表数据: ${url}`);  // 添加调试日志
         
         try {
-            const data = await this.fetchWithRetry(url);
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
             
             // 缓存数据
             this.cache.set(cacheKey, {

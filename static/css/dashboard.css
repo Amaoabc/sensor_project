@@ -19,6 +19,9 @@
     --degraded-color: #ffd166;
     --warning-color: #ffd166;
     --success-color: #4ad66d;
+    /* 新增SGP41颜色变量 */
+    --voc-color: #ff9f40;
+    --nox-color: #4bc0c0;
     
     /* 文本颜色 */
     --text-primary: #e6e6e6;
@@ -39,6 +42,11 @@
     --status-offline-border: #f04c4c;
     --status-degraded-bg: rgba(255, 195, 0, 0.12);
     --status-degraded-border: #ffd166;
+    /* 新增状态颜色 */
+    --status-voc-bg: rgba(255, 159, 64, 0.2);
+    --status-voc-border: #ff9f40;
+    --status-nox-bg: rgba(75, 192, 192, 0.2);
+    --status-nox-border: #4bc0c0;
     
     /* 间距 */
     --spacing-xs: 8px;
@@ -188,7 +196,7 @@ main {
 /* 数据展示 */
 .data-display {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));  /* 调整最小宽度 */
     gap: var(--spacing-lg);
     padding: var(--spacing-md) 0;
 }
@@ -223,6 +231,9 @@ main {
 .co2-value { color: var(--co2-color); }
 .temp-value { color: var(--temp-color); }
 .humi-value { color: var(--humi-color); }
+/* 新增数据值样式 */
+.voc-value { color: var(--voc-color); }
+.nox-value { color: var(--nox-color); }
 
 .data-unit {
     color: var(--text-secondary);
@@ -560,6 +571,37 @@ main {
 }
 
 /* 响应式优化 */
+@media (max-width: 1200px) {
+    .charts-grid {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
+    
+    .data-display {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .data-display {
+        grid-template-columns: 1fr;
+    }
+    
+    .sensor-status {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .status-item {
+        width: 100%;
+        max-width: 200px;
+        justify-content: center;
+    }
+}
+
 @media (max-width: 768px) {
     .chart-container {
         height: 220px;

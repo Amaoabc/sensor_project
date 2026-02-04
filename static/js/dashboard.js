@@ -17,7 +17,8 @@ class SensorDashboard {
             recordCountUpdateInterval: 30000,
             defaultHours: {
                 co2: 24,
-                tempHumi: 24
+                tempHumi: 24,
+                vocNox: 24  // 新增
             }
         };
 
@@ -132,6 +133,13 @@ class SensorDashboard {
             });
         });
 
+        // VOC/NOx时间按钮
+        document.querySelectorAll('[data-chart="voc_nox"].time-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                this.handleTimeButtonClick(button, 'vocNox');
+            });
+        });
+
         // 窗口大小变化时调整图表
         window.addEventListener('resize', this.utils.debounce(() => {
             this.chartManager.resizeCharts();
@@ -159,6 +167,7 @@ class SensorDashboard {
                 this.fetchSensorData(),
                 this.fetchChartData('co2', this.state.currentHours.co2),
                 this.fetchChartData('tempHumi', this.state.currentHours.tempHumi),
+                this.fetchChartData('vocNox', this.state.currentHours.vocNox),  // 新增
                 this.fetchRecordCount()
             ]);
 
@@ -174,15 +183,23 @@ class SensorDashboard {
      * 处理时间按钮点击
      */
     handleTimeButtonClick(button, chartType) {
-        const buttonGroup = document.querySelectorAll(`[data-chart="${chartType === 'co2' ? 'co2' : 'temp_humi'}"].time-btn`);
+        // 确保chartType映射正确
+        let buttonChartType;
+        
+        if (chartType === 'co2') {
+            buttonChartType = 'co2';
+        } else if (chartType === 'tempHumi') {
+            buttonChartType = 'temp_humi';
+        } else if (chartType === 'vocNox') {
+            buttonChartType = 'voc_nox';
+        }
+        
+        const buttonGroup = document.querySelectorAll(`[data-chart="${buttonChartType}"].time-btn`);
         buttonGroup.forEach(btn => btn.classList.remove('active'));
         button.classList.add('active');
 
         const hours = parseInt(button.dataset.hours) || this.config.defaultHours[chartType];
         this.state.currentHours[chartType] = hours;
-
-        // 更新UI管理器中的按钮状态
-        this.uiManager.updateTimeButtonActive(chartType === 'co2' ? 'co2' : 'temp_humi', hours);
 
         // 更新图表管理器的时间范围
         this.chartManager.setChartHours(chartType, hours);
@@ -278,6 +295,7 @@ class SensorDashboard {
     refreshAllCharts() {
         this.fetchChartData('co2', this.state.currentHours.co2);
         this.fetchChartData('tempHumi', this.state.currentHours.tempHumi);
+        this.fetchChartData('vocNox', this.state.currentHours.vocNox);  // 新增
     }
 
     /**

@@ -9,7 +9,9 @@ class ChartManager {
                 fixed: {
                     temperature: { min: 5, max: 40 },
                     humidity: { min: 10, max: 90 },
-                    co2: { min: 400, max: 1600 }
+                    co2: { min: 400, max: 1600 },
+                    voc: { min: 0, max: 500 },      // 新增
+                    nox: { min: 0, max: 500 }       // 新增
                 },
                 adaptive: true // 新增：是否启用自适应范围
             },
@@ -18,12 +20,14 @@ class ChartManager {
 
         this.charts = {
             co2: null,
-            tempHumi: null
+            tempHumi: null,
+            vocNox: null  // 新增
         };
 
         this.currentHours = {
             co2: 24,
-            tempHumi: 24
+            tempHumi: 24,
+            vocNox: 24    // 新增
         };
 
         // 新增：图表颜色配置
@@ -54,7 +58,26 @@ class ChartManager {
                     start: 'rgba(74, 214, 109, 0.8)',
                     end: 'rgba(74, 214, 109, 0.1)'
                 }
+            },
+            voc: {
+                line: 'rgb(255, 159, 64)',
+                fill: 'rgba(255, 159, 64, 0.15)',
+                point: 'rgb(255, 159, 64)',
+                gradient: {
+                    start: 'rgba(255, 159, 64, 0.8)',
+                    end: 'rgba(255, 159, 64, 0.1)'
+                }
+            },
+            nox: {
+                line: 'rgb(75, 192, 192)',
+                fill: 'rgba(75, 192, 192, 0.15)',
+                point: 'rgb(75, 192, 192)',
+                gradient: {
+                    start: 'rgba(75, 192, 192, 0.8)',
+                    end: 'rgba(75, 192, 192, 0.1)'
+                }
             }
+
         };
     }
 
@@ -77,6 +100,7 @@ class ChartManager {
         try {
             this.initCo2Chart();
             this.initTempHumiChart();
+            this.initVocNoxChart();  // 新增
             console.log('图表初始化完成');
             return true;
         } catch (error) {
@@ -214,6 +238,84 @@ class ChartManager {
                     
                     chart.data.datasets[0].backgroundColor = tempGradient;
                     chart.data.datasets[1].backgroundColor = humiGradient;
+                }
+            }]
+        });
+    }
+ 
+    /**
+     * 初始化VOC/NOx图表
+     */
+    initVocNoxChart() {
+        const canvas = document.getElementById('vocNoxChart');
+        if (!canvas) {
+            console.error('找不到VOC/NOx图表canvas元素');
+            return;
+        }
+
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        
+        this.charts.vocNox = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'VOC指数',
+                        data: [],
+                        borderColor: this.chartColors.voc.line,
+                        backgroundColor: this.chartColors.voc.fill,
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: this.chartColors.voc.point,
+                        pointBorderColor: 'rgba(255, 255, 255, 0.9)',
+                        pointBorderWidth: 2
+                    },
+                    {
+                        label: 'NOx指数',
+                        data: [],
+                        borderColor: this.chartColors.nox.line,
+                        backgroundColor: this.chartColors.nox.fill,
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: this.chartColors.nox.point,
+                        pointBorderColor: 'rgba(255, 255, 255, 0.9)',
+                        pointBorderWidth: 2
+                    }
+                ]
+            },
+            options: this.getChartOptions('vocNox'),
+            plugins: [{
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    
+                    // 为VOC线创建渐变背景
+                    const vocGradient = this.createGradient(
+                        ctx, 
+                        chartArea, 
+                        this.chartColors.voc
+                    );
+                    
+                    // 为NOx线创建渐变背景
+                    const noxGradient = this.createGradient(
+                        ctx, 
+                        chartArea, 
+                        this.chartColors.nox
+                    );
+                    
+                    chart.data.datasets[0].backgroundColor = vocGradient;
+                    chart.data.datasets[1].backgroundColor = noxGradient;
                 }
             }]
         });
@@ -413,7 +515,8 @@ class ChartManager {
                     display: false
                 }
             };
-        } else if (type === 'tempHumi') {
+        } 
+        else if (type === 'tempHumi') {
             scales.y = {
                 type: 'linear',
                 display: true,
@@ -481,6 +584,43 @@ class ChartManager {
                 }
             };
         }
+        // 扩展Y轴配置
+        else if (type === 'vocNox') {
+            scales.y = {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.08)',
+                    lineWidth: 1,
+                    drawBorder: false,
+                    drawTicks: false
+                },
+                ticks: {
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    font: {
+                        size: isMobile ? 10 : 12
+                    },
+                    padding: 6,
+                    callback: function (value) {
+                        return value + ' index';
+                    }
+                },
+                title: {
+                    display: !isMobile,
+                    text: 'VOC/NOx指数',
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    font: {
+                        size: 12,
+                        weight: 'normal'
+                    },
+                    padding: { top: 5, bottom: 10 }
+                },
+                border: {
+                    display: false
+                }
+            };
+        }
 
         // 如果是自适应范围，不设置固定min/max
         if (!this.config.adaptive) {
@@ -493,10 +633,14 @@ class ChartManager {
                 scales.y1.min = this.config.chartRanges.fixed.humidity.min;
                 scales.y1.max = this.config.chartRanges.fixed.humidity.max;
             }
-        }
+            else if (type === 'vocNox') {
+                scales.y.min = this.config.chartRanges.fixed.voc.min;
+                scales.y.max = this.config.chartRanges.fixed.voc.max;
+            }
 
         baseOptions.scales = scales;
         return baseOptions;
+        }
     }
 
     /**
@@ -690,6 +834,20 @@ class ChartManager {
                 chart.options.scales.y.min = Math.max(-10, tempMin - tempRange * 0.1);
                 chart.options.scales.y.max = Math.min(60, tempMax + tempRange * 0.1);
             }
+            else if (chartType === 'vocNox') {
+                // 处理VOC数据
+                const vocValues = data.datasets[0]?.data.map(item => item.y) || [];
+                const validVocValues = vocValues.filter(v => !isNaN(v) && v !== null);
+                
+                if (validVocValues.length > 0) {
+                    const vocMin = Math.min(...validVocValues);
+                    const vocMax = Math.max(...validVocValues);
+                    const vocRange = vocMax - vocMin;
+                    
+                    chart.options.scales.y.min = Math.max(0, vocMin - vocRange * 0.1);
+                    chart.options.scales.y.max = Math.min(500, vocMax + vocRange * 0.1);
+                }
+            }
             
             // 处理湿度
             const humiValues = data.datasets[1]?.data.map(item => item.y) || [];
@@ -784,7 +942,43 @@ class ChartManager {
                 humidity: humiStats
             };
         }
+        else if (chartType === 'vocNox') {
+            // 统一获取数据数组
+            let vocData = [];
+            let noxData = [];
 
+            if (chartData && chartData.datasets) {
+                // 获取VOC和NOx数据集
+                vocData = chartData.datasets[0]?.data || [];
+                noxData = chartData.datasets[1]?.data || [];
+            }
+
+            // 过滤掉无效数据
+            const validVocData = vocData.filter(value =>
+                value !== null && value !== undefined && !isNaN(value)
+            );
+            const validNoxData = noxData.filter(value =>
+                value !== null && value !== undefined && !isNaN(value)
+            );
+
+            // 计算统计信息
+            const vocStats = validVocData.length > 0 ? {
+                min: Math.min(...validVocData),
+                max: Math.max(...validVocData),
+                avg: validVocData.reduce((sum, val) => sum + val, 0) / validVocData.length
+            } : null;
+
+            const noxStats = validNoxData.length > 0 ? {
+                min: Math.min(...validNoxData),
+                max: Math.max(...validNoxData),
+                avg: validNoxData.reduce((sum, val) => sum + val, 0) / validNoxData.length
+            } : null;
+
+            return {
+                voc: vocStats,
+                nox: noxStats
+            };
+        }
         return null;
     }
 
@@ -802,6 +996,7 @@ class ChartManager {
     resizeCharts() {
         if (this.charts.co2) this.charts.co2.resize();
         if (this.charts.tempHumi) this.charts.tempHumi.resize();
+        if (this.charts.vocNox) this.charts.vocNox.resize();  // 新增
     }
 
     /**
@@ -816,6 +1011,11 @@ class ChartManager {
         if (this.charts.tempHumi) {
             this.charts.tempHumi.destroy();
             this.charts.tempHumi = null;
+        }
+
+        if (this.charts.vocNox) {
+            this.charts.vocNox.destroy();
+            this.charts.vocNox = null;
         }
 
         console.log('图表已销毁');
@@ -833,6 +1033,10 @@ class ChartManager {
             tempHumi: {
                 initialized: this.charts.tempHumi !== null,
                 currentHours: this.currentHours.tempHumi
+            },
+            vocNox: {
+                initialized: this.charts.vocNox !== null,
+                currentHours: this.currentHours.vocNox
             }
         };
     }

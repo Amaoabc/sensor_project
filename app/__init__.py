@@ -51,11 +51,28 @@ def create_app(config_class=Config):
         from app.api.routes import api_bp
         from app.api.charts import charts_bp
         
+        print(f"正在注册蓝图...")
+        print(f"API蓝图: {api_bp}")
+        print(f"图表蓝图: {charts_bp}")
+        
         app.register_blueprint(api_bp, url_prefix='/api')
-        app.register_blueprint(charts_bp, url_prefix='/api/chart')
+        print("✅ API蓝图已注册到 /api")
+        
+        app.register_blueprint(charts_bp, url_prefix='/api/charts')
+        print("✅ 图表蓝图已注册到 /api/charts")
+        
+        # 打印所有路由用于调试
+        print("\n已注册的路由:")
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint != 'static':
+                print(f"  {rule.rule}")
+        
     except Exception as e:
-        print(f"警告: 蓝图注册失败: {e}")
-    
+        print(f"❌ 蓝图注册失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+
     # 注册主路由
     @app.route('/')
     def index():
@@ -67,7 +84,7 @@ def create_app(config_class=Config):
         
         try:
             return render_template(
-                'sensor_dashboard_dual.html',
+                'sensor_dashboard_triple.html',
                 sensors=sensors,
                 host_ip=Config.HOST,
                 port=Config.PORT,
@@ -105,3 +122,31 @@ def create_app(config_class=Config):
                 print(f"❌ 传感器管理器启动失败: {e}")
     
     return app
+
+    # 简单的测试路由
+    @app.route('/test')
+    def test():
+        """测试路由"""
+        return {
+            'status': 'ok',
+            'message': 'Flask应用正在运行',
+            'version': '5.0'
+        }
+
+    # 检查蓝图的测试路由
+    @app.route('/check-blueprints')
+    def check_blueprints():
+        """检查蓝图路由"""
+        routes = []
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint != 'static':
+                routes.append({
+                    'endpoint': rule.endpoint,
+                    'rule': rule.rule,
+                    'methods': list(rule.methods)
+                })
+        return {
+            'blueprints_registered': 'api_bp' in app.blueprints and 'charts_bp' in app.blueprints,
+            'blueprints': list(app.blueprints.keys()),
+            'routes': routes
+        }
