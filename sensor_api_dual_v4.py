@@ -20,7 +20,7 @@ from app.utils.time_utils import get_local_now
 # 初始化日志
 logger = setup_logging(
     app_name='sensor_api_triple',
-    log_level='info',
+    log_level='warning',
     log_to_file=True
 )
 
